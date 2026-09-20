@@ -1,5 +1,16 @@
 import { useState } from 'react';
 
+const BACKEND_URL = 'https://study-assistant-backend-d4nv.onrender.com';
+
+function getUserId() {
+  let userId = localStorage.getItem('studyAssistantUserId');
+  if (!userId) {
+    userId = 'user_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem('studyAssistantUserId', userId);
+  }
+  return userId;
+}
+
 function App() {
   const [notes, setNotes] = useState('');
   const [questions, setQuestions] = useState([]);
@@ -7,14 +18,52 @@ function App() {
   const [uploading, setUploading] = useState(false);
   const [answers, setAnswers] = useState({});
   const [feedback, setFeedback] = useState({});
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const userId = getUserId();
+
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/history/${userId}`);
+      const data = await res.json();
+      setHistory(data.notes || []);
+    } catch (err) {
+      alert('Could not load history: ' + err.message);
+    }
+    setLoadingHistory(false);
+  };
+
+  const openHistory = () => {
+    setShowHistory(true);
+    fetchHistory();
+  };
+
+  const loadPastQuiz = async (noteId, noteContent) => {
+    setLoading(true);
+    setShowHistory(false);
+    try {
+      const res = await fetch(`${BACKEND_URL}/history/${userId}/${noteId}`);
+      const data = await res.json();
+      setNotes(noteContent);
+      setQuestions(data.questions.map(q => ({ question: q.question, id: q.id })));
+      setAnswers({});
+      setFeedback({});
+    } catch (err) {
+      alert('Could not load this quiz: ' + err.message);
+    }
+    setLoading(false);
+  };
 
   const generateQuestions = async () => {
     setLoading(true);
     try {
-      const res = await fetch('https://study-assistant-backend-d4nv.onrender.com/generate-questions', {
+      const res = await fetch(`${BACKEND_URL}/generate-questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes })
+        body: JSON.stringify({ notes, userId })
       });
       const data = await res.json();
 
@@ -42,7 +91,7 @@ function App() {
     formData.append('file', file);
 
     try {
-      const res = await fetch('https://study-assistant-backend-d4nv.onrender.com/extract-text', {
+      const res = await fetch(`${BACKEND_URL}/extract-text`, {
         method: 'POST',
         body: formData
       });
@@ -66,7 +115,7 @@ function App() {
     if (!studentAnswer) return;
 
     try {
-      const res = await fetch('https://study-assistant-backend-d4nv.onrender.com/grade-answer', {
+      const res = await fetch(`${BACKEND_URL}/grade-answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ questionId, studentAnswer })
@@ -91,8 +140,69 @@ function App() {
         padding: '0 20px',
         color: '#1a1a1a'
       }}>
-        <h1 style={{ fontSize: '28px', marginBottom: '4px' }}>📚 Study Assistant</h1>
-        <p style={{ color: '#666', marginBottom: '20px' }}>Paste your notes and test yourself instantly.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ fontSize: '28px', marginBottom: '4px' }}>📚 Study Assistant</h1>
+            <p style={{ color: '#666', marginBottom: '20px' }}>Paste your notes and test yourself instantly.</p>
+          </div>
+          <button
+            onClick={openHistory}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: '1px solid #ccc',
+              backgroundColor: 'white',
+              cursor: 'pointer',
+              fontSize: '14px',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            🕑 History
+          </button>
+        </div>
+
+        {showHistory && (
+          <div style={{
+            marginBottom: '24px',
+            padding: '18px',
+            border: '1px solid #e2e2e2',
+            borderRadius: '10px',
+            backgroundColor: 'white',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <strong>Your past quizzes</strong>
+              <button
+                onClick={() => setShowHistory(false)}
+                style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '16px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {loadingHistory && <p>Loading...</p>}
+            {!loadingHistory && history.length === 0 && <p style={{ color: '#666' }}>No past quizzes yet.</p>}
+
+            {history.map(note => (
+              <div
+                key={note.id}
+                onClick={() => loadPastQuiz(note.id, note.content)}
+                style={{
+                  padding: '10px',
+                  borderBottom: '1px solid #eee',
+                  cursor: 'pointer'
+                }}
+              >
+                <p style={{ margin: 0, fontSize: '14px' }}>
+                  {note.content.slice(0, 80)}{note.content.length > 80 ? '...' : ''}
+                </p>
+                <p style={{ margin: 0, fontSize: '12px', color: '#999' }}>
+                  {new Date(note.created_at).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
 
         <textarea
           rows={6}
