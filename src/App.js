@@ -11,7 +11,7 @@ function App() {
   const generateQuestions = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/generate-questions', {
+      const res = await fetch('https://study-assistant-backend-d4nv.onrender.com/generate-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes })
@@ -42,7 +42,7 @@ function App() {
     formData.append('file', file);
 
     try {
-      const res = await fetch('http://localhost:3000/extract-text', {
+      const res = await fetch('https://study-assistant-backend-d4nv.onrender.com/extract-text', {
         method: 'POST',
         body: formData
       });
@@ -66,7 +66,7 @@ function App() {
     if (!studentAnswer) return;
 
     try {
-      const res = await fetch('http://localhost:3000/grade-answer', {
+      const res = await fetch('https://study-assistant-backend-d4nv.onrender.com/grade-answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ questionId, studentAnswer })
